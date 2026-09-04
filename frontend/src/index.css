@@ -1,0 +1,70 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg-base: #0d0b1e;
+  --bg-sidebar: #110e26;
+  --bg-card: #1a1635;
+  --bg-card-hover: #201b40;
+  --bg-panel: #141128;
+  --bg-input: rgba(255,255,255,0.06);
+  --border: rgba(255,255,255,0.08);
+  --border-active: rgba(139,92,246,0.5);
+  --accent: #8b5cf6;
+  --accent-light: #a78bfa;
+  --accent-pink: #ec4899;
+  --accent-pink-light: #f472b6;
+  --accent-gradient: linear-gradient(135deg, #8b5cf6, #ec4899);
+  --text-primary: #f1f0ff;
+  --text-secondary: #a09cb8;
+  --text-muted: #6b6480;
+  --gold: #f59e0b;
+  --green: #10b981;
+  --red: #ef4444;
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.3);
+  --shadow-md: 0 8px 24px rgba(0,0,0,0.4);
+  --shadow-lg: 0 16px 48px rgba(0,0,0,0.5);
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --sidebar-w: 220px;
+  --topbar-h: 60px;
+}
+
+html {
+  background: var(--bg-base);
+}
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-primary);
+  background: var(--bg-base);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+button, input, select, textarea {
+  font: inherit;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(139,92,246,0.3); border-radius: 99px; }

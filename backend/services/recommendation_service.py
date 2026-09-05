@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import math
 from typing import Any
 
 import pandas as pd
@@ -11,6 +10,12 @@ from services.movie_service import movie_service
 
 
 class RecommendationService:
+    SUPPORTED_GENRES = {
+        "Action", "Adventure", "Animation", "Children", "Comedy", "Crime",
+        "Documentary", "Drama", "Fantasy", "Film-Noir", "Horror", "Musical",
+        "Mystery", "Romance", "Sci-Fi", "Thriller", "War", "Western",
+    }
+
     def get_recommendations_for_user(self, user_id: int, limit: int = DEFAULT_RECOMMENDATION_LIMIT) -> dict:
         if limit < 1:
             limit = DEFAULT_RECOMMENDATION_LIMIT
@@ -121,6 +126,121 @@ class RecommendationService:
             "user_id": user_id,
             "genre": normalized_genre,
             "recommendations": ranked[:limit],
+        }
+
+    def get_cold_start_recommendations(
+        self,
+        genres: list[str],
+        ratings: list[dict[str, float | int]],
+        limit: int = DEFAULT_RECOMMENDATION_LIMIT,
+    ) -> dict[str, Any]:
+        """Rank new-user recommendations without inventing an SVD user vector."""
+        if not 1 <= limit <= 20:
+            raise ValueError("limit must be between 1 and 20.")
+
+        movies = movie_service.load_movies()
+        existing_ratings = movie_service.load_ratings()
+        normalized_genres = list(dict.fromkeys(genre.strip() for genre in genres if genre.strip()))
+        invalid_genres = sorted(set(normalized_genres) - self.SUPPORTED_GENRES)
+        if invalid_genres:
+            raise ValueError(f"Unsupported genre(s): {', '.join(invalid_genres)}")
+
+        movie_ids = set(movies["movie_id"].astype(int))
+        rating_map: dict[int, float] = {}
+        for entry in ratings:
+            movie_id = int(entry["movie_id"])
+            rating = float(entry["rating"])
+            if movie_id not in movie_ids:
+                raise ValueError(f"Movie ID {movie_id} does not exist.")
+            if not 1 <= rating <= 5:
+                raise ValueError("Ratings must be between 1 and 5.")
+            rating_map[movie_id] = rating
+
+        stats = (
+            existing_ratings.groupby("movie_id")["rating"]
+            .agg(rating_count="count", average_rating="mean")
+            .reset_index()
+        )
+        candidates = movies.merge(stats, on="movie_id", how="left")
+        candidates["rating_count"] = candidates["rating_count"].fillna(0)
+        candidates["average_rating"] = candidates["average_rating"].fillna(0)
+        candidates = candidates[~candidates["movie_id"].isin(rating_map)]
+
+        genre_set = set(normalized_genres)
+        candidates["genre_match"] = candidates["genres_list"].apply(
+            lambda values: len(genre_set.intersection(values)) if genre_set else 0
+        )
+        candidates["popularity"] = (
+            candidates["average_rating"] * candidates["rating_count"]
+            / (candidates["rating_count"] + POPULAR_MIN_RATINGS)
+        )
+        candidates["score"] = candidates["popularity"] + candidates["genre_match"] * 0.35
+        method = "popularity_fallback"
+        reason = "Popular and highly rated movies from the catalog."
+
+        if rating_map:
+            rated_ids = list(rating_map)
+            overlap = existing_ratings[existing_ratings["movie_id"].isin(rated_ids)].copy()
+            overlap["new_rating"] = overlap["movie_id"].map(rating_map)
+            overlap["new_centered"] = overlap["new_rating"] - sum(rating_map.values()) / len(rating_map)
+            user_means = overlap.groupby("user_id")["rating"].transform("mean")
+            overlap["existing_centered"] = overlap["rating"] - user_means
+            overlap["product"] = overlap["new_centered"] * overlap["existing_centered"]
+            similarity = overlap.groupby("user_id").agg(
+                overlap_count=("movie_id", "count"),
+                numerator=("product", "sum"),
+                existing_norm=("existing_centered", lambda values: float((values ** 2).sum()) ** 0.5),
+            )
+            new_norm = float((overlap.drop_duplicates("movie_id")["new_centered"] ** 2).sum()) ** 0.5
+            similarity["similarity"] = similarity["numerator"] / (new_norm * similarity["existing_norm"] + 1e-9)
+            similarity = similarity[(similarity["overlap_count"] >= 2) & (similarity["similarity"] > 0)]
+            similar_users = similarity.sort_values("similarity", ascending=False).head(50)
+
+            if not similar_users.empty:
+                liked = existing_ratings[existing_ratings["user_id"].isin(similar_users.index)].merge(
+                    similar_users[["similarity"]], left_on="user_id", right_index=True
+                )
+                liked = liked[liked["rating"] >= 3.5]
+                liked_scores = liked.groupby("movie_id").apply(
+                    lambda rows: float((rows["rating"] * rows["similarity"]).sum() / rows["similarity"].abs().sum()),
+                    include_groups=False,
+                )
+                candidates["similarity_score"] = candidates["movie_id"].map(liked_scores).fillna(0)
+                candidates["score"] += candidates["similarity_score"] * 0.75
+                method = "similar_users_and_genres"
+                reason = "Similar MovieLens users with tastes like yours enjoyed this."
+            elif normalized_genres:
+                method = "genre_and_popularity"
+                reason = "Highly rated among movies matching your preferences."
+        elif normalized_genres:
+            method = "genre_and_popularity"
+            reason = "Matches your selected genres and has strong MovieLens ratings."
+
+        candidates = candidates.sort_values(
+            ["score", "genre_match", "rating_count"], ascending=[False, False, False]
+        ).head(limit)
+        recommendations = []
+        for _, row in candidates.iterrows():
+            row_genres = set(row["genres_list"])
+            if genre_set and row_genres.intersection(genre_set):
+                row_reason = reason
+            elif method == "similar_users_and_genres":
+                row_reason = "Similar users enjoyed this movie."
+            else:
+                row_reason = "Popular and highly rated in MovieLens."
+            recommendations.append({
+                "movie_id": int(row["movie_id"]),
+                "title": row["title"],
+                "genres": row["genres_list"],
+                "score": round(float(row["score"]), 3),
+                "reason": row_reason,
+            })
+
+        return {
+            "user_type": "new",
+            "method": "cold_start",
+            "recommendation_method": method,
+            "recommendations": recommendations,
         }
 
     def search_movies(self, query: str, limit: int = 10) -> list[dict[str, Any]]:

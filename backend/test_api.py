@@ -56,3 +56,44 @@ def test_model_metrics_endpoint():
     data = response.json()
     assert data['best_model'] == 'SVD'
     assert data['models'][2]['name'] == 'SVD'
+
+
+def test_cold_start_with_ratings_returns_recommendations():
+    response = client.post('/api/recommendations/cold-start', json={
+        'genres': ['Action', 'Sci-Fi', 'Thriller'],
+        'ratings': [
+            {'movie_id': 2571, 'rating': 5},
+            {'movie_id': 1196, 'rating': 4},
+            {'movie_id': 260, 'rating': 5},
+            {'movie_id': 1210, 'rating': 4},
+            {'movie_id': 589, 'rating': 4},
+        ],
+    })
+    assert response.status_code == 200
+    data = response.json()
+    assert data['user_type'] == 'new'
+    assert len(data['recommendations']) == 5
+    assert data['recommendations'][0]['reason']
+
+
+def test_cold_start_fallback_without_preferences_returns_movies():
+    response = client.post('/api/recommendations/cold-start', json={'genres': [], 'ratings': []})
+    assert response.status_code == 200
+    assert response.json()['recommendations']
+
+
+def test_cold_start_rejects_invalid_movie_and_rating():
+    unknown_movie = client.post('/api/recommendations/cold-start', json={
+        'genres': ['Drama'], 'ratings': [{'movie_id': 999999, 'rating': 5}],
+    })
+    invalid_rating = client.post('/api/recommendations/cold-start', json={
+        'genres': ['Drama'], 'ratings': [{'movie_id': 1, 'rating': 6}],
+    })
+    assert unknown_movie.status_code == 400
+    assert invalid_rating.status_code == 422
+
+
+def test_existing_user_route_remains_svd_compatible():
+    response = client.get('/api/recommendations/101')
+    assert response.status_code == 200
+    assert response.json()['recommendations']

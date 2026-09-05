@@ -76,6 +76,21 @@ def test_cold_start_with_ratings_returns_recommendations():
     assert data['recommendations'][0]['reason']
 
 
+def test_cold_start_accepts_canonical_childrens_genre():
+    response = client.post('/api/recommendations/cold-start', json={
+        'genres': ['Action', "Children's", 'Sci-Fi'],
+        'ratings': [
+            {'movie_id': 1, 'rating': 5},
+            {'movie_id': 2, 'rating': 4},
+            {'movie_id': 3, 'rating': 5},
+            {'movie_id': 4, 'rating': 3},
+            {'movie_id': 5, 'rating': 4},
+        ],
+    })
+    assert response.status_code == 200
+    assert response.json()['recommendations']
+
+
 def test_cold_start_fallback_without_preferences_returns_movies():
     response = client.post('/api/recommendations/cold-start', json={'genres': [], 'ratings': []})
     assert response.status_code == 200

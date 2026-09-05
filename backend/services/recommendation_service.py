@@ -11,10 +11,11 @@ from services.movie_service import movie_service
 
 class RecommendationService:
     SUPPORTED_GENRES = {
-        "Action", "Adventure", "Animation", "Children", "Comedy", "Crime",
+        "Action", "Adventure", "Animation", "Children's", "Comedy", "Crime",
         "Documentary", "Drama", "Fantasy", "Film-Noir", "Horror", "Musical",
         "Mystery", "Romance", "Sci-Fi", "Thriller", "War", "Western",
     }
+    DATASET_GENRE_ALIASES = {"Children's": "Children"}
 
     def get_recommendations_for_user(self, user_id: int, limit: int = DEFAULT_RECOMMENDATION_LIMIT) -> dict:
         if limit < 1:
@@ -144,6 +145,7 @@ class RecommendationService:
         invalid_genres = sorted(set(normalized_genres) - self.SUPPORTED_GENRES)
         if invalid_genres:
             raise ValueError(f"Unsupported genre(s): {', '.join(invalid_genres)}")
+        dataset_genres = [self.DATASET_GENRE_ALIASES.get(genre, genre) for genre in normalized_genres]
 
         movie_ids = set(movies["movie_id"].astype(int))
         rating_map: dict[int, float] = {}
@@ -166,7 +168,7 @@ class RecommendationService:
         candidates["average_rating"] = candidates["average_rating"].fillna(0)
         candidates = candidates[~candidates["movie_id"].isin(rating_map)]
 
-        genre_set = set(normalized_genres)
+        genre_set = set(dataset_genres)
         candidates["genre_match"] = candidates["genres_list"].apply(
             lambda values: len(genre_set.intersection(values)) if genre_set else 0
         )

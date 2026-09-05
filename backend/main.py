@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.analytics import router as analytics_router
@@ -50,8 +50,20 @@ def get_genres() -> list[str]:
 
 
 @app.get("/health")
-def health_check() -> dict[str, str]:
-    return {"status": "ok", "service": "CineMatch"}
+def health_check() -> dict[str, str | bool]:
+    try:
+        model_service.get_model()
+        movie_service.load_movies()
+        movie_service.load_ratings()
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="CineMatch dependencies are not ready.") from exc
+
+    return {
+        "status": "ok",
+        "service": "CineMatch",
+        "model_loaded": model_service.model is not None,
+        "data_loaded": movie_service.movies_df is not None and movie_service.ratings_df is not None,
+    }
 
 
 if __name__ == "__main__":

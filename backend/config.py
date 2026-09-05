@@ -16,6 +16,9 @@ ALLOWED_ORIGINS = [
     ).split(",")
     if origin.strip()
 ]
+FRONTEND_URL = os.getenv("FRONTEND_URL", "").strip()
+if FRONTEND_URL and FRONTEND_URL not in ALLOWED_ORIGINS:
+    ALLOWED_ORIGINS.append(FRONTEND_URL)
 
 MODEL_PATH = BASE_DIR / "models" / "cinematch_svd_final.pkl"
 MOVIES_PATH = BASE_DIR / "data" / "movies.csv"

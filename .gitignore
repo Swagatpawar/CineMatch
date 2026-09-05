@@ -39,6 +39,12 @@ pnpm-debug.log*
 backend/model/
 backend/data/ml-latest-small/
 
+# Required CineMatch deployment assets
+!backend/models/
+!backend/models/cinematch_svd_final.pkl
+!backend/data/movies.csv
+!backend/data/ratings.csv
+
 # Logs and OS files
 *.log
 .DS_Store

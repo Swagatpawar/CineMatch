@@ -9,7 +9,11 @@ type NewUserProfile = { type: 'new'; genres: string[]; ratings: ColdRating[] }
 type ColdRecommendation = Movie & { score: number; reason: string }
 type View = 'home' | 'for-you' | 'popular' | 'top-rated' | 'genres' | 'genre' | 'movie' | 'profile' | 'performance' | 'about' | 'search'
 
-const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
+const API_BASE =
+  import.meta.env.VITE_API_URL ??
+  (import.meta.env.PROD
+    ? 'https://cinematch-backend-73w3.onrender.com'
+    : 'http://localhost:8000')
 const USERS = ['1', '2', '42', '100', '101', '200', '300', '400', '500', '600', '610']
 const CANONICAL_GENRES = ['Action', 'Adventure', 'Animation', "Children's", 'Comedy', 'Crime', 'Documentary', 'Drama', 'Fantasy', 'Film-Noir', 'Horror', 'Musical', 'Mystery', 'Romance', 'Sci-Fi', 'Thriller', 'War', 'Western']
 const GENRE_ICONS: Record<string, string> = { Action: '💥', Comedy: '😊', Drama: '🎭', Horror: '💀', Romance: '❤️', 'Sci-Fi': '🚀', Thriller: '🗡️', Fantasy: '🧚', Adventure: '✈️', Animation: '🤖', "Children's": '🎈', Children: '🎈', Crime: '🕵️', Documentary: '🎬', Musical: '🎵', Mystery: '🔍', War: '⚔️', Western: '🤠' }
